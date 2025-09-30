@@ -1,3 +1,4 @@
+<?php
 /**
  * Escapa HTML para output seguro
  * 
