@@ -99,7 +99,7 @@ $locais = $conn->query("SELECT id, nome, cidade, uf, latitude, longitude FROM lo
             
             <div class="form-group">
                 <label for="imagens">Imagens e Vídeos</label>
-                <input type="file" name="midia[]" id="midia" accept="image/*,video/*" multiple>
+                <input type="file" name="imagens[]" id="imagens" accept="image/*,video/*" multiple>
             </div>
             
             <button type="submit" class="button">Cadastrar Evento</button>
