@@ -4,33 +4,54 @@ require_once 'conexao.php';
 
 // Verifica se usuário está logado
 if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
+    header('Location: cadastro_evento.php?erro=login_necessario');
     exit;
 }
 
 // Função util para resposta de erro
 function fail($msg) {
-    $_SESSION['flash_error'] = $msg;
-    header('Location: index.php');
+    header('Location: cadastro_evento.php?erro=' . urlencode($msg));
     exit;
 }
 
 try {
     // Valida campos obrigatórios
-    $camposObrig = ['local','cidade','uf','tipo','intensidade','data','latitude','longitude'];
+    $camposObrig = ['tipo','intensidade','data_evento','latitude','longitude'];
     foreach ($camposObrig as $c) {
         if (empty($_POST[$c])) {
-            fail("Campo obrigatório ausente: $c");
+            fail("campos_obrigatorios");
         }
     }
 
-    $local       = trim($_POST['local']);
-    $cidade      = trim($_POST['cidade']);
-    $uf          = strtoupper(trim($_POST['uf']));
+    // Obter informações do local
+    $local = '';
+    $cidade = '';
+    $uf = '';
+    
+    if (!empty($_POST['local_id'])) {
+        $localId = (int)$_POST['local_id'];
+        $stmt = $conn->prepare("SELECT nome, cidade, uf FROM locais WHERE id = ?");
+        $stmt->bind_param("i", $localId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            $local = $row['nome'];
+            $cidade = $row['cidade'];
+            $uf = $row['uf'];
+        }
+    }
+    
+    // Se não tiver local_id, usar coordenadas para determinar local
+    if (empty($local)) {
+        $local = 'Localização no mapa';
+        $cidade = 'A definir';
+        $uf = 'BR';
+    }
+
     $tipo        = trim($_POST['tipo']);
     $intensidade = trim($_POST['intensidade']);
     $observacoes = isset($_POST['observacoes']) ? trim($_POST['observacoes']) : null;
-    $dataEvento  = $_POST['data']; // formato datetime-local (YYYY-MM-DDTHH:MM)
+    $dataEvento  = $_POST['data_evento']; // formato datetime-local (YYYY-MM-DDTHH:MM)
     $latitude    = (float)$_POST['latitude'];
     $longitude   = (float)$_POST['longitude'];
     $userId      = (int)$_SESSION['user_id'];
@@ -38,12 +59,13 @@ try {
     // Normaliza data
     $dataEvento = str_replace('T', ' ', $dataEvento) . ':00';
 
-    // Insere evento
+    // Insere evento usando mysqli
     $sql = "INSERT INTO eventos (user_id, local, cidade, uf, tipo, intensidade, observacoes, latitude, longitude, data_evento)
             VALUES (?,?,?,?,?,?,?,?,?,?)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$userId, $local, $cidade, $uf, $tipo, $intensidade, $observacoes, $latitude, $longitude, $dataEvento]);
-    $eventoId = $pdo->lastInsertId();
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("issssssdds", $userId, $local, $cidade, $uf, $tipo, $intensidade, $observacoes, $latitude, $longitude, $dataEvento);
+    $stmt->execute();
+    $eventoId = $conn->insert_id;
 
     // Upload de imagens (múltiplas)
     if (!empty($_FILES['imagens']) && isset($_FILES['imagens']['name']) && $_FILES['imagens']['name'][0] !== '') {
@@ -85,8 +107,9 @@ try {
             if (move_uploaded_file($tmpName, $destPath)) {
                 // Caminho público relativo
                 $publicPath = 'uploads/' . $newFileName;
-                $stmtImg = $pdo->prepare("INSERT INTO eventos_imagens (evento_id, caminho_imagem) VALUES (?,?)");
-                $stmtImg->execute([$eventoId, $publicPath]);
+                $stmtImg = $conn->prepare("INSERT INTO eventos_imagens (evento_id, caminho_imagem) VALUES (?,?)");
+                $stmtImg->bind_param("is", $eventoId, $publicPath);
+                $stmtImg->execute();
             }
         }
     }
