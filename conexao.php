@@ -1,4 +1,19 @@
 <?php
+/**
+ * NOTA: Este arquivo está em processo de migração gradual para nova estrutura.
+ * 
+ * A nova arquitetura (src/, Composer, PDO, .env) foi introduzida para melhorar
+ * segurança e manutenibilidade sem quebrar o código existente.
+ * 
+ * Veja public/index_refatorado.php para exemplo da nova estrutura.
+ * Migração completa será feita gradualmente em PRs futuras.
+ */
+
+// Tenta carregar bootstrap se disponível (habilita suporte a .env)
+if (file_exists(__DIR__ . '/public/bootstrap.php')) {
+    require_once __DIR__ . '/public/bootstrap.php';
+}
+
 // Configurações da conexão
 $db_host = 'localhost';
 $db_user = 'root'; 
@@ -8,7 +23,7 @@ $db_name = 'enchentes';
 // Conexão com o banco
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
 if ($conn->connect_error) {
-    die("Falha na conexão: " . $conn->error);
+    die("Falha na conexão: " . $conn->connect_error);
 }
 $conn->set_charset("utf8");
 
@@ -27,7 +42,8 @@ function sanitize($input) {
 
 // Função para obter previsão do tempo
 function obterPrevisaoTempo($cidade, $uf = "") {
-    $api_key = '5a3a2e0c72f5e5c8d2e2f3e2c6e2b7ac'; // SUA CHAVE OPENWEATHERMAP
+    // API Key: usar variável de ambiente se disponível (recomendado mover para .env)
+    $api_key = function_exists('env') ? env('OPENWEATHER_API_KEY', '5a3a2e0c72f5e5c8d2e2f3e2c6e2b7ac') : '5a3a2e0c72f5e5c8d2e2f3e2c6e2b7ac';
 
     // Busca coordenadas via geocoding OpenWeatherMap
     $geo_url = "http://api.openweathermap.org/geo/1.0/direct?q=" . urlencode($cidade . ($uf ? ",$uf,BR" : ",BR")) . "&limit=1&appid=$api_key";
