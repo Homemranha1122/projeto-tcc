@@ -15,8 +15,10 @@ function fail($msg) {
 }
 
 try {
-    // Valida campos obrigatórios
-    $camposObrig = ['tipo','intensidade','data_evento','latitude','longitude'];
+    // Valida campos obrigatórios baseado em qual form foi enviado
+    $dataField = isset($_POST['data']) ? 'data' : 'data_evento';
+    
+    $camposObrig = ['tipo','intensidade',$dataField,'latitude','longitude'];
     foreach ($camposObrig as $c) {
         if (empty($_POST[$c])) {
             fail("campos_obrigatorios");
@@ -28,7 +30,9 @@ try {
     $cidade = '';
     $uf = '';
     
+    // Verifica se veio de cadastro_evento.php (com local_id) ou index.php (com local, cidade, uf)
     if (!empty($_POST['local_id'])) {
+        // Formulário de cadastro_evento.php
         $localId = (int)$_POST['local_id'];
         $stmt = $conn->prepare("SELECT nome, cidade, uf FROM locais WHERE id = ?");
         $stmt->bind_param("i", $localId);
@@ -39,9 +43,14 @@ try {
             $cidade = $row['cidade'];
             $uf = $row['uf'];
         }
+    } elseif (!empty($_POST['local']) && !empty($_POST['cidade']) && !empty($_POST['uf'])) {
+        // Formulário de index.php
+        $local = trim($_POST['local']);
+        $cidade = trim($_POST['cidade']);
+        $uf = strtoupper(trim($_POST['uf']));
     }
     
-    // Se não tiver local_id, usar coordenadas para determinar local
+    // Se não tiver local, usar coordenadas para determinar local
     if (empty($local)) {
         $local = 'Localização no mapa';
         $cidade = 'A definir';
@@ -51,7 +60,7 @@ try {
     $tipo        = trim($_POST['tipo']);
     $intensidade = trim($_POST['intensidade']);
     $observacoes = isset($_POST['observacoes']) ? trim($_POST['observacoes']) : null;
-    $dataEvento  = $_POST['data_evento']; // formato datetime-local (YYYY-MM-DDTHH:MM)
+    $dataEvento  = $_POST[$dataField]; // pode ser 'data' ou 'data_evento'
     $latitude    = (float)$_POST['latitude'];
     $longitude   = (float)$_POST['longitude'];
     $userId      = (int)$_SESSION['user_id'];
